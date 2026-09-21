@@ -1,0 +1,68 @@
+name: Deploy Node.js App to AWS ECS
+
+on:
+  push:
+    branches: [ main ]
+
+env:
+  AWS_REGION: us-east-1                   # 👈 Replace with your AWS Region
+  ECR_REPOSITORY: aws-ecs-demo           # 👈 Replace with your AWS ECR Repository name
+  ECS_SERVICE: my-node-app-service       # 👈 Replace with your ECS Service name
+  ECS_CLUSTER: my-ecs-cluster            # 👈 Replace with your ECS Cluster name
+  CONTAINER_NAME: aws-ecs-demo           # 👈 Replace with the container name inside your task definition
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    # Step 1: Download code from GitHub
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    # Step 2: Configure AWS Credentials using GitHub Secrets
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets::AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets::AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    # Step 3: Log in to AWS Elastic Container Registry (ECR)
+    - name: Log in to AWS ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    # Step 4: Build, Tag, and Push the Docker Image to ECR
+    - name: Build, Tag, and Push Image to AWS ECR
+      id: build-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }} # Uses the unique Git commit hash as the version tag
+      run: |
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+    # Step 5: Download the active task definition from ECS
+    - name: Download active Task Definition
+      run: |
+        aws ecs describe-task-definition --task-definition ${{ env.CONTAINER_NAME }} --query taskDefinition > task-definition.json
+
+    # Step 6: Modify the Task Definition with the new Docker image version
+    - name: Update Task Definition Image
+      id: render-task-def
+      uses: aws-actions/amazon-ecs-render-task-definition@v1
+      with:
+        task-definition: task-definition.json
+        container-name: ${{ env.CONTAINER_NAME }}
+        image: ${{ steps.build-image.outputs.image }}
+
+    # Step 7: Deploy the updated Task Definition to AWS ECS
+    - name: Deploy to Amazon ECS Service
+      uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+      with:
+        task-definition: ${{ steps.render-task-def.outputs.task-definition }}
+        service: ${{ env.ECS_SERVICE }}
+        cluster: ${{ env.ECS_CLUSTER }}
+        wait-for-service-stability: true
