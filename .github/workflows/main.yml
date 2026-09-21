@@ -6,9 +6,9 @@ on:
 
 env:
   AWS_REGION: us-east-1                   # 👈 Replace with your AWS Region
-  ECR_REPOSITORY: aws-ecs-demo           # 👈 Replace with your AWS ECR Repository name
-  ECS_SERVICE: my-node-app-service       # 👈 Replace with your ECS Service name
-  ECS_CLUSTER: my-ecs-cluster            # 👈 Replace with your ECS Cluster name
+  ECR_REPOSITORY: ecs-app/registry           # 👈 Replace with your AWS ECR Repository name
+  ECS_SERVICE: ecs-demo-service       # 👈 Replace with your ECS Service name
+  ECS_CLUSTER: ecs-demo-cluster            # 👈 Replace with your ECS Cluster name
   CONTAINER_NAME: aws-ecs-demo           # 👈 Replace with the container name inside your task definition
 
 jobs:
@@ -26,7 +26,7 @@ jobs:
       with:
         aws-access-key-id: ${{ secrets::AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets::AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ env.AWS_REGION }}
+        aws-region: ${{ env.us-east-1 }}
 
     # Step 3: Log in to AWS Elastic Container Registry (ECR)
     - name: Log in to AWS ECR
